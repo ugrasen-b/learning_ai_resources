@@ -106,5 +106,66 @@ class Sigmoid(ActivationFunction):
     def forward(self, x):
         return 1 / (1 + torch.exp(-x))
     
+#%%
 class Tanh(ActivationFunction):
+    def forward(self, x):
+        x_exp, neg_x_exp = torch.exp(x), torch.exp(-x)
+        return (x_exp - neg_x_exp) / (x_exp + neg_x_exp)
+
+#%%
+class ReLU(ActivationFunction):
+    def forward(self, x):
+        return x * (x > 0).float()
     
+class LeakyReLU(ActivationFunction):
+    def __init__(self, alpha=0.1):
+        super().__init__()
+        self.config["alpha"] = alpha
+        
+    def forward(self, x):
+        return torch.where(x < 0, x, self.config["alpha"] * x)
+    
+class ELU(ActivationFunction):
+    def forward(self, x):
+        return torch.where(x > 0, x, torch.exp(x) - 1)
+    
+class Swish(ActivationFunction):
+    def forward(self, x):
+        return x * torch.sigmoid(x)
+    
+#%%
+act_fn_by_name = {"sigmoid": Sigmoid, "tanh": Tanh, "relu": ReLU, "leakyrelu": LeakyReLU, "elu": ELU, "swish": Swish}
+
+
+#%%
+def get_grads(act_fn, x):
+    x = x.clone().requires_grad_()
+    out = act_fn(x)
+    # Autograd needs a scalar output to start backprop. Summing means each element of x contributes equally to the gradient.
+    out.sum().backward()
+    return x.grad
+
+#%%
+def vis_act_fn(act_fn, ax, x):
+    y = act_fn(x)
+    y_grads = get_grads(act_fn, x)
+    x, y, y_grads = x.cpu().numpy(), y.cpu().numpy(), y_grads.cpu().numpy()
+    # Plotting
+    ax.plot(x, y, linewidth=2, label="ActFn")
+    ax.plot(x, y_grads, linewidth=2, label="Gradient")
+    ax.set_title(act_fn.name)
+    ax.legend()
+    ax.set_ylim(-1.5, x.max())
+    
+#%%
+# Add activation functions if wanted
+act_fns = [act_fn() for act_fn in act_fn_by_name.values()]
+x = torch.linspace(-5, 5, 1000)  # Range on which we want to visualize the activation functions
+# Plotting
+cols = 2
+rows = math.ceil(len(act_fns) / float(cols))
+fig, ax = plt.subplots(rows, cols, figsize=(cols * 4, rows * 4))
+for i, act_fn in enumerate(act_fns):
+    vis_act_fn(act_fn, ax[divmod(i, cols)], x)
+fig.subplots_adjust(hspace=0.3)
+plt.show()
